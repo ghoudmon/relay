@@ -2,6 +2,7 @@
   "name": "bulwark-relay",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "Push notification relay for Bulwark Webmail. Accepts JMAP StateChange bodies and forwards as FCM / APNs pushes so self-hosters don't need their own Firebase project.",
   "type": "module",
   "main": "dist/server.js",

@@ -50,3 +50,7 @@ docker compose up -d
 | `HOST` | `0.0.0.0` | |
 | `PUSH_DATA_DIR` | `./data` | Where `subscriptions.json` and the FCM key live |
 | `FCM_SERVICE_ACCOUNT_JSON` | unset | Either the full JSON inline or an absolute path — falls back to `$PUSH_DATA_DIR/fcm-service-account.json` |
+
+## License
+
+Licensed under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE).
