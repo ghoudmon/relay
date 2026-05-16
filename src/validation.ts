@@ -10,3 +10,12 @@ export function isValidFcmToken(value: unknown): value is string {
     /^[A-Za-z0-9:_-]+$/.test(value)
   );
 }
+
+export function isValidEndpoint(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length >= 12 &&
+    value.length <= 2048 &&
+    /^https?:\/\//.test(value)
+  );
+}

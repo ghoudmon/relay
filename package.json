@@ -15,8 +15,11 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.19.19",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@pushforge/builder": "^2.0.5"
   }
 }

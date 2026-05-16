@@ -3,8 +3,9 @@ import { URL } from 'node:url';
 import { logger } from './logger.js';
 import { subscriptionStore } from './store.js';
 import { sendFcmPush } from './fcm.js';
-import { isValidFcmToken, isValidSubscriptionId } from './validation.js';
-import type { JmapPushBody, SubscriptionRecord } from './types.js';
+import { getVapidPublicKey, sendWebPush } from './webpush.js';
+import { isValidFcmToken, isValidSubscriptionId, isValidEndpoint } from './validation.js';
+import type { JmapPushBody, SubscriptionRecord, WebSubscription } from './types.js';
 
 const PORT = Number(process.env.PORT ?? 3003);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -105,6 +106,51 @@ async function handleRegister(
   return sendJson(res, 200, { ok: true });
 }
 
+
+async function handleRegisterWeb(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  const body = (await readJson(req)) as
+    | { subscriptionId?: unknown; subscription?: WebSubscription; accountLabel?: unknown }
+    | null
+    | undefined;
+  if (!body || typeof body !== 'object') {
+    return sendJson(res, 400, { error: 'Invalid JSON' });
+  }
+  const { subscriptionId, subscription, accountLabel } = body;
+  if (!isValidSubscriptionId(subscriptionId)) {
+    return sendJson(res, 400, { error: 'Invalid subscriptionId' });
+  }
+  if (!subscription || typeof subscription !== 'object') {
+    return sendJson(res, 400, { error: 'Invalid subscription' });
+  }
+  const { endpoint, keys } = subscription;
+  if (!isValidEndpoint(endpoint)) {
+    return sendJson(res, 400, { error: 'Invalid endpoint' });
+  }
+  if (!keys || typeof keys !== 'object') {
+    return sendJson(res, 400, { error: 'Invalid keys' });
+  }
+  const { p256dh, auth } = keys;
+  if (typeof p256dh !== 'string' || typeof auth !== 'string') {
+    return sendJson(res, 400, { error: 'Invalid keys' });
+  }
+
+  const existing = await subscriptionStore.get(subscriptionId);
+  const record: SubscriptionRecord = {
+    fcmToken: null,
+    verificationCode: existing?.verificationCode ?? null,
+    createdAt: existing?.createdAt ?? Date.now(),
+    lastPushAt: existing?.lastPushAt ?? null,
+    accountLabel:
+      typeof accountLabel === 'string' ? accountLabel.slice(0, 120) : undefined,
+    subscription: subscription,
+  };
+  await subscriptionStore.put(subscriptionId, record);
+  return sendJson(res, 200, { ok: true });
+}
+
 async function handleUnregister(
   id: string,
   res: http.ServerResponse,
@@ -156,7 +202,7 @@ async function handleJmap(
   }
 
   if (body['@type'] === 'StateChange') {
-    const result = await sendFcmPush(record, body);
+    const result = record.subscription != null ? await sendWebPush(record, body) : await sendFcmPush(record, body);
     record.lastPushAt = Date.now();
     await subscriptionStore.put(id, record);
     if (result.unregistered) {
@@ -166,6 +212,13 @@ async function handleJmap(
   }
 
   return sendJson(res, 400, { error: 'Unsupported JMAP push type' });
+}
+
+async function handleVapidPublicKey(
+  res: http.ServerResponse,
+): Promise<void> {
+  const vapidPublicKey = await getVapidPublicKey();
+  return sendJson(res, 200, { publicKey: vapidPublicKey });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -202,6 +255,10 @@ const server = http.createServer(async (req, res) => {
       return await handleRegister(req, res);
     }
 
+    if (method === 'DELETE' && path === '/api/push/register/web') {
+      return await handleRegisterWeb(req, res);
+    }
+
     const registerIdMatch = path.match(/^\/api\/push\/register\/([^/]+)$/);
     if (method === 'DELETE' && registerIdMatch) {
       return await handleUnregister(decodeURIComponent(registerIdMatch[1]), res);
@@ -215,6 +272,10 @@ const server = http.createServer(async (req, res) => {
     const jmapMatch = path.match(/^\/api\/push\/jmap\/([^/]+)$/);
     if (method === 'POST' && jmapMatch) {
       return await handleJmap(req, decodeURIComponent(jmapMatch[1]), res);
+    }
+
+    if (method === 'GET' && path == '/api/push/vapid-public-key') {
+      return await handleVapidPublicKey(res);
     }
 
     return sendJson(res, 404, { error: 'Not found' });

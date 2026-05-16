@@ -1,9 +1,18 @@
 export interface SubscriptionRecord {
-  fcmToken: string;
+  fcmToken?: string | null;
   verificationCode: string | null;
   createdAt: number;
   lastPushAt: number | null;
   accountLabel?: string;
+  subscription?: WebSubscription;
+}
+
+export interface WebSubscription {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
 }
 
 export interface PushVerification {
