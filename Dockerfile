@@ -1,7 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json tsconfig.json ./
-RUN npm install --no-audit --no-fund
+COPY package.json package-lock.json tsconfig.json ./
+RUN npm ci --no-audit --no-fund
 COPY src ./src
 RUN npx tsc
 
@@ -13,7 +13,8 @@ ENV PORT=3003
 
 RUN addgroup -S relay && adduser -S relay -G relay
 COPY --from=build /app/dist ./dist
-COPY package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
 RUN mkdir -p /app/data && chown -R relay:relay /app
 
 USER relay
