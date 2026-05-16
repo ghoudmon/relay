@@ -255,7 +255,7 @@ const server = http.createServer(async (req, res) => {
       return await handleRegister(req, res);
     }
 
-    if (method === 'DELETE' && path === '/api/push/register/web') {
+    if (method === 'POST' && path === '/api/push/register/web') {
       return await handleRegisterWeb(req, res);
     }
 
